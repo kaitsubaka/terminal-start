@@ -1,0 +1,129 @@
+:root {
+  /* matches firefox's Solid Black Theme */
+  --bg: #000000;
+  --field: #0d0d0d;
+  --border: #1f1f1f;
+  --fg: #c0c0c0;
+  --dim: #6e6e6e;
+  --user: #ffffff;
+  --ok: #ffffff;
+  --host: #c0c0c0;
+  --path: #8a8a8a;
+  --err: #d9736f;
+  --font: "PF Tempesta Five Condensed", "Cascadia Mono", "Consolas", monospace;
+}
+
+* {
+  box-sizing: border-box
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0
+}
+
+body {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 16px
+}
+
+::selection {
+  background: #4e4e4e;
+  color: #ffffff
+}
+
+#container {
+  width: min(70%, 860px);
+  margin: auto;
+  padding: 0 16px
+}
+
+#logo {
+  margin-bottom: 50px;
+  text-align: center;
+  font-family: "Meiryo", "Yu Gothic", sans-serif;
+  font-weight: 600;
+  font-size: 100px;
+  user-select: none
+}
+
+#prompt {
+  display: flex;
+  padding: 10px 15px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  white-space: pre
+}
+
+#box {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  caret-color: var(--user)
+}
+
+#prompt:focus-within {
+  border-color: #4e4e4e
+}
+
+#box::placeholder {
+  color: var(--dim)
+}
+
+#out {
+  padding: 15px 15px 0;
+  line-height: 1.6
+}
+
+#out a {
+  color: var(--fg);
+  text-decoration: none
+}
+
+#out a:hover {
+  text-decoration: underline
+}
+
+.line {
+  white-space: pre-wrap;
+  word-break: break-word
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0 16px
+}
+
+.dim { color: var(--dim) }
+.ok { color: var(--ok) }
+.u { color: var(--user) }
+.h { color: var(--host) }
+.p { color: var(--path) }
+.err { color: var(--err) }
+
+#prompt.fail {
+  animation: fail .35s ease-in-out;
+  border-color: var(--err)
+}
+
+@keyframes fail {
+  25% { transform: translateX(-6px) }
+  75% { transform: translateX(6px) }
+}
+
+@media (max-width: 600px) {
+  #container { width: 100% }
+  #logo { font-size: 56px }
+}
