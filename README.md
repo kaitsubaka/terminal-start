@@ -47,16 +47,86 @@ don't come back when you press `↑`.
 
 ### Installation
 
+Clone it next to your firefox data so it doesn't clutter your desktop:
+
+| os | clone into | `home.html` url |
+| --- | --- | --- |
+| windows | `%APPDATA%\Mozilla\Firefox` | `file:///C:/Users/<you>/AppData/Roaming/Mozilla/Firefox/terminal-start/home.html` |
+| macos | `~/Library/Application Support/Firefox` | `file:///Users/<you>/Library/Application%20Support/Firefox/terminal-start/home.html` |
+| linux | `~/.mozilla/firefox` | `file:///home/<you>/.mozilla/firefox/terminal-start/home.html` |
+
 ```
 git clone https://github.com/kaitsubaka/terminal-start.git
 ```
 
-**Homepage:** in firefox go to `about:preferences#home`, set *Homepage and new windows* to *Custom URLs*
-and paste the path to `home.html`, e.g. `file:///C:/Users/kai/terminal-start/home.html`.
+Any folder works, just use its path wherever the steps below say `<url>`.
 
-**New tab:** firefox doesn't let you pick a local file for new tabs out of the box. The easiest way is an
-extension like [New Tab Override](https://addons.mozilla.org/firefox/addon/new-tab-override/) pointed at
-the same `file:///` path.
+#### Homepage
+
+Find your profile folder in `about:profiles` (*Root Directory* of the profile in use) and create a
+`user.js` there:
+
+```js
+user_pref("browser.startup.homepage", "<url>");
+user_pref("browser.startup.page", 1);
+```
+
+Firefox reads it on every start. `browser.startup.page` set to `1` opens the homepage instead of restoring
+the last session, drop that line if you want to keep your tabs.
+
+#### New tab
+
+Firefox can't point new tabs to a local file from its settings, so this uses
+[autoconfig](https://support.mozilla.org/kb/customizing-firefox-using-autoconfig). It goes in the firefox
+install folder, so it needs admin rights and applies to every user on the machine.
+
+| os | install folder |
+| --- | --- |
+| windows | `C:\Program Files\Mozilla Firefox` |
+| macos | `/Applications/Firefox.app/Contents/Resources` |
+| linux | `/usr/lib/firefox` (or `/usr/lib64/firefox`, `/opt/firefox`) |
+
+Snap and flatpak builds keep that folder read-only, so this doesn't work with them. Use the tarball or your
+distro's package instead.
+
+1. Create `defaults/pref/autoconfig.js` inside the install folder:
+
+   ```js
+   // Loads mozilla.cfg from the install folder, which points new tabs to terminal-start.
+   pref("general.config.filename", "mozilla.cfg");
+   pref("general.config.obscure_value", 0);
+   pref("general.config.sandbox_enabled", false);
+   ```
+
+2. Create `mozilla.cfg` in the install folder itself. Firefox skips its first line, so keep the comment:
+
+   ```js
+   // Firefox skips the first line of this file.
+   // Opens terminal-start on every new tab and gives the prompt focus instead of the url bar.
+   try {
+     const START = "<url>";
+     const { AboutNewTab } = ChromeUtils.importESModule("resource:///modules/AboutNewTab.sys.mjs");
+     AboutNewTab.newTabURL = START;
+
+     Services.obs.addObserver(function (win) {
+       win.gBrowser.addTabsProgressListener({
+         onLocationChange: function (browser, progress, request, location) {
+           if (!progress.isTopLevel || location.spec !== START) return;
+           win.setTimeout(function () {
+             if (browser === win.gBrowser.selectedBrowser) browser.focus();
+           }, 0);
+         }
+       });
+     }, "browser-delayed-startup-finished");
+   } catch (e) {
+     Cu.reportError(e);
+   }
+   ```
+
+3. Quit firefox completely and open it again.
+
+If new tabs still show the default page, check the browser console (`ctrl+shift+j`, `cmd+shift+j` on macos) for errors from
+`mozilla.cfg`. A firefox update can remove these files, if that happens copy them back.
 
 ### Editing
 
