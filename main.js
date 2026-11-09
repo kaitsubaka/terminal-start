@@ -3,9 +3,12 @@
   var form = document.getElementById("prompt");
   var box = document.getElementById("box");
   var out = document.getElementById("out");
+  var modeEl = document.getElementById("mode");
   var history = load();
   var pos = history.length;
   var newTab = false;
+  // The last command run. Input that doesn't start with a command is passed to it as the argument.
+  var mode = null;
 
   document.getElementById("ps1").innerHTML = '<span class="u">' + esc(conf.user) + '</span>@<span class="h">' +
     esc(conf.host) + '</span>:<span class="p">~</span>$ ';
@@ -24,6 +27,9 @@
       print(cols(Object.keys(conf.engines).map(function (k) {
         return row(k + " <q>", conf.engines[k].desc);
       })));
+      print('<span class="dim">anything else is a ' + esc(conf.fallback) + '. the box next to the prompt is the last ' +
+        'command, text that doesn\'t start with a command goes to it (cd, then claude, is cd claude). ' +
+        'backspace on an empty line drops it</span>');
       print('<span class="dim">tab completes, ↑/↓ walks history, ctrl+enter opens in a new tab, esc clears</span>');
     },
     ls: function () {
@@ -44,44 +50,69 @@
       print(esc(conf.user));
     },
     echo: function (arg) {
-      if (!arg) return false;
       print(esc(arg));
     }
   };
 
-  // Turns the input into { link, keep } where keep says if it belongs in history.
-  // Searches run but aren't kept, so typos and one-off queries don't pile up.
+  // Turns the input into { link, keep, line } where keep says if it belongs in history and line is how it's
+  // saved there. Searches run but aren't kept, so typos and one-off queries don't pile up.
   function resolve(input) {
-    var parts = input.match(/^(\S+)\s*(.*)$/);
-    var cmd = parts[1], arg = parts[2];
+    var parts = split(input);
+    var cmd = parts[0], arg = parts[1];
 
     if (cmd === "cd") return conf.bookmarks[arg] && { link: conf.bookmarks[arg], keep: true };
     if (cmd === "open") return arg && { link: url(arg), keep: true };
-    if (conf.engines[cmd]) {
-      var e = conf.engines[cmd];
-      return arg ? { link: e.url.replace("%s", encodeURIComponent(arg)), keep: false } : { link: e.home, keep: true };
+    if (conf.engines[cmd]) return search(cmd, arg);
+    if (conf.bookmarks[input]) return { link: conf.bookmarks[input], keep: true, line: "cd " + input };
+    if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(input) || /^https?:\/\//.test(input)) {
+      return { link: url(input), keep: true, line: "open " + input };
     }
-    if (conf.bookmarks[input]) return { link: conf.bookmarks[input], keep: true };
-    if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(input) || /^https?:\/\//.test(input)) return { link: url(input), keep: true };
+    return search(conf.fallback, input);
   }
 
-  function known(cmd) {
-    return cmd === "cd" || cmd === "open" || !!conf.engines[cmd];
+  function search(name, q) {
+    var e = conf.engines[name];
+    return q ? { link: e.url.replace("%s", encodeURIComponent(q)), keep: false } : { link: e.home, keep: true };
   }
 
-  function run(input) {
-    var cmd = input.split(/\s+/)[0];
+  function isCommand(cmd) {
+    return !!builtins[cmd] || cmd === "cd" || cmd === "open" || !!conf.engines[cmd];
+  }
+
+  function takesArg(cmd) {
+    return cmd === "cd" || cmd === "open" || cmd === "echo" || !!conf.engines[cmd];
+  }
+
+  // Prefixes the mode when the input doesn't name a command itself.
+  function expand(input) {
+    return mode && takesArg(mode) && !isCommand(split(input)[0]) ? mode + " " + input : input;
+  }
+
+  function setMode(cmd) {
+    mode = cmd;
+    modeEl.textContent = mode || conf.fallback;
+    modeEl.classList.toggle("idle", !(mode && takesArg(mode)));
+  }
+
+  function run(raw) {
+    var input = expand(raw);
+    var parts = split(input);
+    var cmd = parts[0], arg = parts[1];
     out.innerHTML = "";
 
+    // A bare cd, open or echo only switches the mode. Engines open their homepage instead.
+    if (!arg && takesArg(cmd) && !conf.engines[cmd]) return setMode(cmd);
+
     if (builtins[cmd]) {
-      if (builtins[cmd](input.slice(cmd.length).trim()) === false) return fail();
+      if (builtins[cmd](arg) === false) return fail();
+      setMode(cmd);
       return remember(input);
     }
 
     var r = resolve(input);
-    if (!r && !known(cmd)) print('<span class="err">' + esc(cmd) + ': command not found</span>, try <span class="u">help</span>');
     if (!r) return fail();
-    if (r.keep) remember(input);
+    if (isCommand(cmd)) setMode(cmd);
+    if (r.keep) remember(r.line || input);
     if (newTab) window.open(r.link, "_blank");
     else window.location.href = r.link;
   }
@@ -92,17 +123,24 @@
     save();
   }
 
+  function split(input) {
+    var parts = input.match(/^(\S*)\s*(.*)$/);
+    return [parts[1], parts[2]];
+  }
+
   function url(s) {
     return /^[a-z]+:\/\//i.test(s) ? s : "https://" + s;
   }
 
+  // Completes against the expanded line, so `cl` under cd completes like `cd cl`.
   function complete() {
-    var val = box.value;
-    var space = val.indexOf(" ");
+    var full = expand(box.value);
+    var prefix = full.slice(0, full.length - box.value.length);
+    var space = full.indexOf(" ");
     var pool = space === -1 ?
       ["cd", "open"].concat(Object.keys(builtins), Object.keys(conf.engines), Object.keys(conf.bookmarks)) :
-      (val.slice(0, space) === "cd" ? Object.keys(conf.bookmarks) : []);
-    var word = space === -1 ? val : val.slice(space + 1);
+      (full.slice(0, space) === "cd" ? Object.keys(conf.bookmarks) : []);
+    var word = space === -1 ? full : full.slice(space + 1);
     var hits = pool.filter(function (k) { return k.indexOf(word) === 0; });
     if (!hits.length) return;
 
@@ -111,7 +149,8 @@
       while (i < a.length && a[i] === b[i]) i++;
       return a.slice(0, i);
     });
-    box.value = (space === -1 ? "" : val.slice(0, space + 1)) + common + (hits.length === 1 ? " " : "");
+    box.value = ((space === -1 ? "" : full.slice(0, space + 1)) + common + (hits.length === 1 ? " " : ""))
+      .slice(prefix.length);
   }
 
   function fail() {
@@ -161,12 +200,13 @@
   }
 
   history = history.filter(function (h) {
-    var cmd = h.split(/\s+/)[0];
+    var cmd = split(h)[0];
     if (builtins[cmd]) return true;
     var r = resolve(h);
     return r && r.keep;
   });
   pos = history.length;
+  setMode(null);
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -189,6 +229,8 @@
       e.preventDefault();
       pos = Math.min(pos + 1, history.length);
       box.value = history[pos] || "";
+    } else if (e.key === "Backspace" && !box.value) {
+      setMode(null);
     } else if (e.key === "Escape" || (e.key === "c" && e.ctrlKey && !window.getSelection().toString())) {
       box.value = "";
       out.innerHTML = "";

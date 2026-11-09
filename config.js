@@ -3,6 +3,9 @@ var CONFIG = {
   user: "kai",
   host: "firefox",
 
+  // Engine used for anything that is not a command, bookmark or url.
+  fallback: "search",
+
   // `<name> <query>` searches with the engine. `%s` is replaced by the query.
   engines: {
     search: { url: "https://www.google.com/search?q=%s", home: "https://www.google.com", desc: "google" },

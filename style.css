@@ -10,6 +10,9 @@
   --host: #c0c0c0;
   --path: #8a8a8a;
   --err: #d9736f;
+  --mode-bg: #12161c;
+  --mode-border: #252c36;
+  --mode-fg: #8fa1b8;
   --font: "PF Tempesta Five Condensed", "Cascadia Mono", "Consolas", monospace;
 }
 
@@ -71,6 +74,35 @@ body {
   color: var(--fg);
   font: inherit;
   caret-color: var(--user)
+}
+
+#bar {
+  display: flex;
+  gap: 8px
+}
+
+#prompt {
+  flex: 1;
+  min-width: 0
+}
+
+/* stretches to the prompt's height */
+#mode {
+  display: flex;
+  align-items: center;
+  padding: 0 15px;
+  border-radius: 5px;
+  border: 1px solid var(--mode-border);
+  background: var(--mode-bg);
+  color: var(--mode-fg);
+  white-space: pre;
+  user-select: none
+}
+
+#mode.idle {
+  border-color: var(--border);
+  background: var(--field);
+  color: var(--dim)
 }
 
 #prompt:focus-within {

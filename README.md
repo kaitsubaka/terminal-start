@@ -28,9 +28,18 @@ kai@firefox:~$ open news.ycombinator.com
 | `open <url>` | go to a url (typing a bare domain works too) |
 | `help`, `ls`, `history`, `clear`, `date`, `whoami`, `echo` | the usual |
 
-Anything that is not a command, bookmark or url prints `command not found` and points you to `help`.
+Anything that is not a command, bookmark or url is searched with `fallback` from the config (google by
+default). Those searches don't count as commands: they aren't saved in history and don't change the mode.
 
 Engines with no query open their homepage, so `yt` alone takes you to youtube.
+
+### Mode
+
+The box next to the prompt shows the last command you ran. Text that doesn't start with a command is passed
+to it, so `cd` and then `claude` is `cd claude`, and after `yt lofi` (with `ctrl+enter`) typing `jazz` runs
+`yt jazz`. A bare `cd`, `open` or `echo` only switches the mode. Commands without arguments like `ls` show up
+dimmed and leave the input alone. `backspace` on an empty line drops the mode back to the default search.
+The mode lives in the page, so every new tab starts fresh.
 
 ### Keys
 
@@ -38,6 +47,7 @@ Engines with no query open their homepage, so `yt` alone takes you to youtube.
 - `↑` / `↓` walks through history
 - `ctrl+enter` opens the result in a new tab
 - `esc` / `ctrl+c` drops the current line
+- `backspace` on an empty line drops the mode
 
 Opening a site doesn't print anything, it just goes. If a command can't run (like `cd` to a bookmark that
 doesn't exist) the prompt shakes.
