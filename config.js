@@ -3,6 +3,11 @@ var CONFIG = {
   user: "kai",
   host: "firefox",
 
+  // Settings for each firefox profile, by its name. `colors` overrides the variables at the top of style.css.
+  profiles: {
+    Fluffy: { colors: { user: "#b44dff", ok: "#b44dff" } }
+  },
+
   // Engine used for anything that is not a command, bookmark or url.
   fallback: "search",
 

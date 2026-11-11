@@ -1,5 +1,11 @@
 (function () {
   var conf = CONFIG;
+  // The firefox profile name, passed in the url by mozilla.cfg or user.js, wins over the configured user.
+  var user = new URLSearchParams(location.search).get("user") || conf.user;
+  var colors = (conf.profiles[user] || {}).colors || {};
+  Object.keys(colors).forEach(function (k) {
+    document.documentElement.style.setProperty("--" + k, colors[k]);
+  });
   var form = document.getElementById("prompt");
   var box = document.getElementById("box");
   var out = document.getElementById("out");
@@ -15,7 +21,7 @@
   var sel = -1;
   var fresh = false;
 
-  document.getElementById("ps1").innerHTML = '<span class="u">' + esc(conf.user) + '</span>@<span class="h">' +
+  document.getElementById("ps1").innerHTML = '<span class="u">' + esc(user) + '</span>@<span class="h">' +
     esc(conf.host) + '</span>:<span class="p">~</span>$ ';
 
   // Commands that print something. They return false when they can't run.
@@ -53,7 +59,7 @@
       print(esc(new Date().toString()));
     },
     whoami: function () {
-      print(esc(conf.user));
+      print(esc(user));
     },
     echo: function (arg) {
       print(esc(arg));

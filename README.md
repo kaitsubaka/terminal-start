@@ -79,12 +79,13 @@ Find your profile folder in `about:profiles` (*Root Directory* of the profile in
 `user.js` there:
 
 ```js
-user_pref("browser.startup.homepage", "<url>");
+user_pref("browser.startup.homepage", "<url>?user=<profile name>");
 user_pref("browser.startup.page", 1);
 ```
 
 Firefox reads it on every start. `browser.startup.page` set to `1` opens the homepage instead of restoring
-the last session, drop that line if you want to keep your tabs.
+the last session, drop that line if you want to keep your tabs. `?user=` shows the profile name in the
+prompt, leave it out to use the `user` from `config.js`.
 
 #### New tab
 
@@ -115,15 +116,29 @@ distro's package instead.
    ```js
    // Firefox skips the first line of this file.
    // Opens terminal-start on every new tab and gives the prompt focus instead of the url bar.
+   // The profile name goes in the url so the prompt shows it as the user.
    try {
      const START = "<url>";
      const { AboutNewTab } = ChromeUtils.importESModule("resource:///modules/AboutNewTab.sys.mjs");
      AboutNewTab.newTabURL = START;
 
+     let named = false;
      Services.obs.addObserver(function (win) {
+       if (!named) {
+         named = true;
+         // Profiles from the profile menu keep their name in their own store, older ones in profiles.ini.
+         const { SelectableProfileService } = ChromeUtils.importESModule(
+           "resource:///modules/profiles/SelectableProfileService.sys.mjs");
+         SelectableProfileService.init().then(function () {
+           const profile = SelectableProfileService.currentProfile ||
+             Cc["@mozilla.org/toolkit/profile-service;1"].getService(Ci.nsIToolkitProfileService).currentProfile;
+           if (profile) AboutNewTab.newTabURL = START + "?user=" + encodeURIComponent(profile.name);
+         }).catch(Cu.reportError);
+       }
+
        win.gBrowser.addTabsProgressListener({
          onLocationChange: function (browser, progress, request, location) {
-           if (!progress.isTopLevel || location.spec !== START) return;
+           if (!progress.isTopLevel || location.spec.split("?")[0] !== START) return;
            win.setTimeout(function () {
              if (browser === win.gBrowser.selectedBrowser) browser.focus();
            }, 0);
@@ -142,7 +157,8 @@ If new tabs still show the default page, check the browser console (`ctrl+shift+
 
 ### Editing
 
-Everything lives in [`config.js`](config.js): user and host for the prompt, search engines and bookmarks.
+Everything lives in [`config.js`](config.js): user and host for the prompt (a `?user=` in the url, which
+the setup above fills with the profile name, replaces the user), colors for each profile, search engines and bookmarks.
 Colors are css variables at the top of [`style.css`](style.css).
 
 The config is a plain script instead of json because firefox blocks `fetch` on `file://` pages.
