@@ -45,6 +45,8 @@ The mode lives in the page, so every new tab starts fresh.
 
 - `tab` completes commands and bookmarks
 - `↑` / `↓` walks through history
+- right after `ls`, `history` or a tab that lists several matches, the arrows and `tab` / `shift+tab` pick an
+  item from the list and `enter` runs it. Typing anything goes back to the normal keys
 - `ctrl+enter` opens the result in a new tab
 - `esc` / `ctrl+c` drops the current line
 - `backspace` on an empty line drops the mode

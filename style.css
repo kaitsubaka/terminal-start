@@ -127,6 +127,11 @@ body {
   text-decoration: underline
 }
 
+#out .sel {
+  background: var(--fg);
+  color: var(--bg)
+}
+
 .line {
   white-space: pre-wrap;
   word-break: break-word

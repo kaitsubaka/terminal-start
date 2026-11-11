@@ -9,6 +9,11 @@
   var newTab = false;
   // The last command run. Input that doesn't start with a command is passed to it as the argument.
   var mode = null;
+  // The items of the list printed last (ls, history or completions) and the selected one. Arrows and tab walk
+  // the list while it's fresh, that is until something is typed, and the selection is written to the box.
+  var items = [];
+  var sel = -1;
+  var fresh = false;
 
   document.getElementById("ps1").innerHTML = '<span class="u">' + esc(conf.user) + '</span>@<span class="h">' +
     esc(conf.host) + '</span>:<span class="p">~</span>$ ';
@@ -30,16 +35,17 @@
       print('<span class="dim">anything else is a ' + esc(conf.fallback) + '. the box next to the prompt is the last ' +
         'command, text that doesn\'t start with a command goes to it (cd, then claude, is cd claude). ' +
         'backspace on an empty line drops it</span>');
-      print('<span class="dim">tab completes, ↑/↓ walks history, ctrl+enter opens in a new tab, esc clears</span>');
+      print('<span class="dim">tab completes, ↑/↓ walks history, ctrl+enter opens in a new tab, esc clears. ' +
+        'right after ls, history or a completion list, arrows and tab pick an item and enter runs it</span>');
     },
     ls: function () {
       print(cols(Object.keys(conf.bookmarks).map(function (k) {
-        return '<a href="' + esc(conf.bookmarks[k]) + '">' + esc(k) + '/</a>';
+        return '<a href="' + esc(conf.bookmarks[k]) + '" data-fill="cd ' + esc(k) + '">' + esc(k) + '/</a>';
       })));
     },
     history: function () {
       history.forEach(function (h, i) {
-        print('<span class="dim">' + pad(i + 1) + '</span>  ' + esc(h));
+        print('<span data-fill="' + esc(h) + '"><span class="dim">' + pad(i + 1) + '</span>  ' + esc(h) + '</span>');
       });
     },
     clear: function () {},
@@ -98,13 +104,14 @@
     var input = expand(raw);
     var parts = split(input);
     var cmd = parts[0], arg = parts[1];
-    out.innerHTML = "";
+    clear();
 
     // A bare cd, open or echo only switches the mode. Engines open their homepage instead.
     if (!arg && takesArg(cmd) && !conf.engines[cmd]) return setMode(cmd);
 
     if (builtins[cmd]) {
       if (builtins[cmd](arg) === false) return fail();
+      arm();
       setMode(cmd);
       return remember(input);
     }
@@ -142,6 +149,7 @@
       (full.slice(0, space) === "cd" ? Object.keys(conf.bookmarks) : []);
     var word = space === -1 ? full : full.slice(space + 1);
     var hits = pool.filter(function (k) { return k.indexOf(word) === 0; });
+    var head = space === -1 ? "" : full.slice(0, space + 1);
     if (!hits.length) return;
 
     var common = hits.reduce(function (a, b) {
@@ -149,8 +157,59 @@
       while (i < a.length && a[i] === b[i]) i++;
       return a.slice(0, i);
     });
-    box.value = ((space === -1 ? "" : full.slice(0, space + 1)) + common + (hits.length === 1 ? " " : ""))
-      .slice(prefix.length);
+    box.value = (head + common + (hits.length === 1 ? " " : "")).slice(prefix.length);
+    if (hits.length === 1) return;
+
+    // Lists the candidates so the next tab or arrow picks one.
+    clear();
+    print(cols(hits.map(function (k) {
+      return '<span data-fill="' + esc((head + k + " ").slice(prefix.length)) + '">' + esc(k) + "</span>";
+    })));
+    arm();
+  }
+
+  function clear() {
+    out.innerHTML = "";
+    items = [];
+    sel = -1;
+    fresh = false;
+  }
+
+  function arm() {
+    items = [].slice.call(out.querySelectorAll("[data-fill]"));
+    fresh = items.length > 0;
+  }
+
+  function disarm() {
+    if (items[sel]) items[sel].classList.remove("sel");
+    sel = -1;
+    fresh = false;
+  }
+
+  function select(i) {
+    if (items[sel]) items[sel].classList.remove("sel");
+    sel = i;
+    items[sel].classList.add("sel");
+    box.value = items[sel].getAttribute("data-fill");
+  }
+
+  // Items on the first row, so up and down move by whole rows in a grid.
+  function width() {
+    var top = items[0].getBoundingClientRect().top;
+    return items.filter(function (el) { return el.getBoundingClientRect().top === top; }).length;
+  }
+
+  // The index the key moves the selection to, or null when the key isn't meant for the list.
+  function move(e) {
+    if (!items.length || !(fresh || sel >= 0) || e.ctrlKey || e.metaKey || e.altKey) return null;
+    var n = items.length, w = width();
+    if (e.key === "Tab") return sel < 0 ? (e.shiftKey ? n - 1 : 0) : (sel + (e.shiftKey ? n - 1 : 1)) % n;
+    if (e.key === "ArrowDown") return sel < 0 ? 0 : sel + w < n ? sel + w : sel;
+    if (e.key === "ArrowUp") return sel < 0 ? n - 1 : sel - w >= 0 ? sel - w : sel;
+    if (sel < 0) return null;
+    if (e.key === "ArrowRight") return Math.min(sel + 1, n - 1);
+    if (e.key === "ArrowLeft") return Math.max(sel - 1, 0);
+    return null;
   }
 
   function fail() {
@@ -216,8 +275,14 @@
     box.value = "";
   });
 
+  box.addEventListener("input", disarm);
+
   box.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {
+    var to = move(e);
+    if (to !== null) {
+      e.preventDefault();
+      select(to);
+    } else if (e.key === "Enter") {
       newTab = e.ctrlKey || e.metaKey;
     } else if (e.key === "Tab") {
       e.preventDefault();
@@ -233,11 +298,11 @@
       setMode(null);
     } else if (e.key === "Escape" || (e.key === "c" && e.ctrlKey && !window.getSelection().toString())) {
       box.value = "";
-      out.innerHTML = "";
+      clear();
       pos = history.length;
     } else if (e.key === "l" && e.ctrlKey) {
       e.preventDefault();
-      out.innerHTML = "";
+      clear();
     }
   });
 
