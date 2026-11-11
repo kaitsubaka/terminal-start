@@ -5,7 +5,14 @@ var CONFIG = {
 
   // Settings for each firefox profile, by its name. `colors` overrides the variables at the top of style.css.
   profiles: {
-    Fluffy: { colors: { bg: "#1c0a30", field: "#28103f", border: "#3e1d60" } }
+    // Matches the Purple starfield theme.
+    Fluffy: {
+      colors: {
+        bg: "#0c0b15", field: "#211633", border: "#2e2147", focus: "#8544f7",
+        fg: "#cbc8ed", dim: "#7571ae", user: "#f0eff4", ok: "#f0eff4", host: "#908ec4", path: "#7571ae",
+        "mode-bg": "#2b1f4b", "mode-border": "#482886", "mode-fg": "#cbc8ed"
+      }
+    }
   },
 
   // Engine used for anything that is not a command, bookmark or url.
