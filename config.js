@@ -5,7 +5,7 @@ var CONFIG = {
 
   // Settings for each firefox profile, by its name. `colors` overrides the variables at the top of style.css.
   profiles: {
-    Fluffy: { colors: { user: "#b44dff", ok: "#b44dff" } }
+    Fluffy: { colors: { bg: "#1c0a30", field: "#28103f", border: "#3e1d60" } }
   },
 
   // Engine used for anything that is not a command, bookmark or url.
